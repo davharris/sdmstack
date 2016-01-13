@@ -3,8 +3,26 @@ Type: Package
 Title: What the Package Does (Title Case)
 Version: 0.1
 Date: 2016-01-12
-Authors@R: person("First", "Last", email = "first.last@example.com", role = c("aut", "cre"))
+Authors@R: person("David", "Harris", email = "code@harris-research.me", role = c("aut", "cre"))
 Description: More about what it does (maybe more than one line)
-License: What license is it under?
+Depends:
+    R (>= 3.0.2),
+    Rcpp (>= 0.11.0),
+    methods
+Imports:
+    BayesComm,
+    mvtnorm,
+    poibin,
+    progress,
+    abind
+Suggests:
+    knitr,
+    testthat
+LinkingTo: StanHeaders (>= 2.9.0), rstan (>= 2.9.0), BH (>= 1.58.0), Rcpp (>=
+    0.11.0), RcppEigen
+VignetteBuilder: knitr
+LazyData: true
+NeedsCompilation: yes
+License: GPL (>=3)
 LazyData: TRUE
 RoxygenNote: 5.0.1
