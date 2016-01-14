@@ -4,14 +4,14 @@ devtools::load_all()
 
 set.seed(2)
 
-n_spp = 50
-n_loc = 1000
+n_spp = 25
+n_loc = 10000
 n_obs_x = 5
 
 true_rho = matrix(.7, n_spp, n_spp)
 diag(true_rho) = 1
 
-true_intercepts = rnorm(n_spp, -2)
+true_intercepts = rnorm(n_spp, -1)
 
 full_x_both = replicate(
   2,
@@ -47,6 +47,13 @@ y_test = structure(
   dim = dim(true_p_test)
 )
 
+
+full_x_test = full_x_train
+observed_x_test = observed_x_train
+true_p_test = true_p_train
+y_test = y_train
+
+
 glms = lapply(
   1:n_spp,
   function(i){
@@ -59,82 +66,63 @@ glms = lapply(
 predicted_p_train = sapply(glms, predict, type = "response")
 predicted_p_test = sapply(glms, predict, newdata = as.data.frame(observed_x_test), type = "response")
 
+
 bc = bc_stack(
   p_train = predicted_p_train,
   y_train = y_train,
   p_test = predicted_p_test,
-  its = 500
+  110, burn = 10, thin = 1
 )
+
 stack = bc$predicted_array
 
-str(stack)
+
+
 
 marginal_p = marginalize_out(stack, 3)
-plot(marginal_p, predicted_p_test)
 
-rich_p = t(
-  apply(
-    stack,
-    1,
-    function(x){
-      rowMeans(
-        apply(
-          x,
-          2,
-          function(p){
-            dpoibin(0:n_spp, p)
-          }
-        )
-      )
-    }
-  )
+plot(
+  marginal_p,
+  predicted_p_test,
+  pch = ".",
+  main = "BC stacking introduces no biases",
+  xlab = "Expected occurrence probability (post-stacking)",
+  ylab = "Expected occurrence probability (pre-stacking)"
 )
-dimnames(rich_p)[1:2] = dimnames(predicted_p_test)
+abline(0,1)
+
+par(mfrow = c(2, 1))
+plot(probit(bc$predicted_array[1, 2, ]), type = "l", main = "Great mixing for predictions")
+plot(bc$rho_array[1, 2, ], type = "l", main = "Good mixing for correlations")
+par(mfrow = c(1, 1))
 
 rich_p_naive = t(apply(predicted_p_test, 1, function(x){dpoibin(0:n_spp, x)}))
+rich_p = bc$rich_p
 
 
+mean(log(rich_p[cbind(1:nrow(y_test), rowSums(y_test) + 1)])) # Full
+mean(log(rich_p_naive[cbind(1:nrow(y_test), rowSums(y_test) + 1)])) # Naive
+log(1 / (n_spp + 1)) # Very naive
 
-sum(log(rich_p[cbind(1:nrow(y_test), rowSums(y_test) + 1)])) # Full
-sum(log(rich_p_naive[cbind(1:nrow(y_test), rowSums(y_test) + 1)])) # Naive
+
+par(mfrow = c(1, 2))
+plot(seq(0, 1, length = nrow(y_test)), sort(sapply(1:nrow(y_test), function(i){sum(rich_p_naive[i, 1:sum(y_test[i, ])])})),
+     main = "Naive stacking yields many observations in the tails of the distribution")
+abline(0,1)
+plot(seq(0, 1, length = nrow(y_test)), sort(sapply(1:nrow(y_test), function(i){sum(rich_p[i, 1:sum(y_test[i, ])])})),
+     main = "BC stacking is less extreme, but not optimal")
+abline(0,1)
+par(mfrow = c(1, 1))
+
+
 
 i = sample.int(n_spp, 1)
-plot(-.05 + seq(0, n_spp), rich_p_naive[i, ], type = "h", bty = "l", yaxs = "i", lwd = 2)
-lines(.05 + seq(0, n_spp), rich_p[i, ], type = "h", col = 2, lwd = 2)
+plot(-.075 + seq(0, n_spp), rich_p_naive[i, ], type = "h", bty = "l", yaxs = "i", lwd = 2)
+lines(.055 + seq(0, n_spp), rich_p[i, ], type = "h", col = 2, lwd = 2)
 points(sum(y_test[i, ]), 0, pch = 16, cex = 2)
 
 
 
-# rstan -------------------------------------------------------------------
+# analyses ----------------------------------------------------------------
 
-library(rstan)
-model = stan_model("extras/stack.stan")
-
-L_rho = t(chol(cor(y_train - predicted_p_train)))
-
-fit = sampling(
-  model,
-  data = list(
-    D = ncol(y_train),
-    N = nrow(y_train),
-    y = y_train,
-    N_pos = sum(y_train),
-    N_neg = sum(1 - y_train),
-    n_pos = row(y_train)[y_train == 1],
-    n_neg = row(y_train)[y_train == 0],
-    d_pos = col(y_train)[y_train == 1],
-    d_neg = col(y_train)[y_train == 0],
-    probit_p = probit(predicted_p_train),
-    lkj_eta = 2
-  ),
-  init = list(
-    list(
-      L_rho = L_rho
-    )
-  ),
-  pars = c("rho", "z"),
-  chains = 1,
-  iter = 100
-)
-
-e = extract(fit)
+true_sigma = cov(probit(true_p_test) - probit(predicted_p_test))

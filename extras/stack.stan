@@ -32,6 +32,11 @@ data {
 
 transformed data {
   vector[D] scaled_probit_p[N];
+  vector[D] zeros;
+
+  for (i in 1:D) {
+    zeros[i] <- 0;
+  }
 
   // Fix discrepancy between p and expected value of
   // inv_probit(probit_p + rnorm(length(p))).
@@ -49,7 +54,8 @@ parameters{
 }
 
 transformed parameters {
-  vector[D] z[N];               // mean of the latent normal
+  vector[D] z[N];             // Samples from the latent normal
+  vector[D] z_centered[N];    // centered samples
 
   // Combine z_pos and z_neg into a single array called z
   for (n in 1:N_pos){
@@ -58,6 +64,10 @@ transformed parameters {
   for (n in 1:N_neg){
     z[n_neg[n], d_neg[n]] <- z_neg[n];
   }
+
+  for (i in 1:N) {
+    z_centered[i] <- z[i] - scaled_probit_p[i];
+  }
 }
 
 model {
@@ -65,9 +75,7 @@ model {
   L_rho ~ lkj_corr_cholesky(lkj_eta);
 
   // Sample Gaussian random deviates from posterior
-  for (i in 1:N){
-    z[i] ~ multi_normal_cholesky(scaled_probit_p[i], L_rho);
-  }
+  z_centered ~ multi_normal_cholesky(zeros, L_rho);
 }
 
 generated quantities {

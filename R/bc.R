@@ -1,3 +1,7 @@
+richness_pdf = function(p){
+  dpoibin(kk = 0:length(p), pp = p)
+}
+
 probit = qnorm
 inv_probit = pnorm
 
@@ -18,66 +22,92 @@ cor_from_upper = function(x){
 }
 
 
-#' @importFrom BayesComm BC
 #' @importFrom mvtnorm rmvnorm
 #' @importFrom poibin dpoibin
 #' @importFrom progress progress_bar
 #' @importFrom abind abind
 #' @export
-bc_stack = function(p_train, y_train, p_test, its = 1100, burn = 100, thin = 10, verbose = 1, ...){
+bc_stack = function(p_train, y_train, p_test, iters = 1010, burn = 10, thin = 2, verbose = 1, ...){
 
-  # Each species gets its covariate from the corresponding column
-  # of probit(p_train)
-  covlist = lapply(1:n_spp, identity)
+  # Initial values
+  z = y_train - predicted_p_train
+  R = cor(z)
 
+  # Multiply by sqrt(2)??
+  train_mu = probit(p_train) * sqrt(2)
+  test_mu  = probit(p_test) * sqrt(2)
 
-  # 2 / sqrt(2) probably needed because probit model
-  # doubles the variance?
-  bc = BC(
-    Y = y_train,
-    X = sqrt(2) / 2 * probit(p_train),
-    model = "full",
-    covlist = covlist,
-    its = its,
+  bc = BayesComm::BCfit(
+    y = y_train,
+    X = NULL,
+    covlist = NULL,
+    R = R,
+    z = z,
+    mu = train_mu,
+    iters = iters,
+    burn = burn,
     thin = thin,
     verbose = verbose,
-    ...
+    updateR = TRUE,
+    updateMu = FALSE
   )
 
-  thinned_its = nrow(bc$trace$R)
 
-  residual_cor_list = lapply(
-    1:thinned_its,
-    function(i){
-      cor_from_upper(bc$trace$R[i, ])
-    }
+  thinned_its = nrow(bc$R)
+
+  predicted_array = array(NA, c(dim(p_test), thinned_its))
+  rho_array = array(NA, c(dim(R), thinned_its))
+
+  pb = progress_bar$new(
+    format = "Species-level predictions [:bar] :percent",
+    total = thinned_its, clear = FALSE, width = 70
   )
 
-  # Predict mean probit values for each species at test locations
-  test_mu_list = lapply(
-    1:ncol(p_train),
-    function(i) {
-      # First matrix has ones for intercept,
-      cbind(1, probit(p_test)[ , i]) %*% t(bc$trace$B[[i]])
-    }
-  )
-  test_mu = aperm(
-    do.call(abind, c(test_mu_list, along = 3)),
-    c(1, 3, 2)
-  )
-
-  predicted_array = array(NA, dim(test_mu))
   for (i in 1:thinned_its) {
-    predicted_array[ , , i] = pnorm(
-      test_mu[ , , i] + rmvnorm(nrow(test_mu), sigma = residual_cor_list[[i]]),
-      0,
-      1
-    )
+
+    pb$tick()
+
+    # Sample a correlation matrix
+    rho = cor_from_upper(bc$R[i, ])
+
+
+    # Samples from latent Gaussian, using rho as our covariance
+    z = test_mu + rmvnorm(nrow(test_mu), sigma = rho)
+
+    # Save rho
+    rho_array[ , , i] = rho
+
+    # Save conditional occurrence probabilities
+    predicted_array[ , , i] = pnorm(z, 0, 1)
   }
 
+
+  pb = progress_bar$new(
+    format = "Richness distributions [:bar] :percent",
+    total = nrow(p_test), clear = FALSE, width = 70
+  )
+  rich_p = t(
+    apply(
+      predicted_array,
+      1,
+      function(site_predictions){
+        pb$tick()
+
+        # Loop through the predictions for the site and average their
+        # probability distribution functions for richness
+        rowMeans(
+          apply(site_predictions, 2, richness_pdf)
+        )
+      }
+    )
+  )
+  dimnames(rich_p)[1:2] = dimnames(predicted_p_test)
+
+
+
   list(
-    residual_cor_list = residual_cor_list,
+    rho_array = rho_array,
     predicted_array = predicted_array,
-    coefficients = bc$trace$B
+    rich_p = rich_p
   )
 }
