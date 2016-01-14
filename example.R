@@ -104,3 +104,37 @@ lines(.05 + seq(0, n_spp), rich_p[i, ], type = "h", col = 2, lwd = 2)
 points(sum(y_test[i, ]), 0, pch = 16, cex = 2)
 
 
+
+# rstan -------------------------------------------------------------------
+
+library(rstan)
+model = stan_model("extras/stack.stan")
+
+L_rho = t(chol(cor(y_train - predicted_p_train)))
+
+fit = sampling(
+  model,
+  data = list(
+    D = ncol(y_train),
+    N = nrow(y_train),
+    y = y_train,
+    N_pos = sum(y_train),
+    N_neg = sum(1 - y_train),
+    n_pos = row(y_train)[y_train == 1],
+    n_neg = row(y_train)[y_train == 0],
+    d_pos = col(y_train)[y_train == 1],
+    d_neg = col(y_train)[y_train == 0],
+    probit_p = probit(predicted_p_train),
+    lkj_eta = 2
+  ),
+  init = list(
+    list(
+      L_rho = L_rho
+    )
+  ),
+  pars = c("rho", "z"),
+  chains = 1,
+  iter = 100
+)
+
+e = extract(fit)
