@@ -2,7 +2,6 @@
 
 export(bc_stack)
 export(marginalize_out)
-importFrom(BayesComm,BC)
 importFrom(abind,abind)
 importFrom(mvtnorm,rmvnorm)
 importFrom(poibin,dpoibin)

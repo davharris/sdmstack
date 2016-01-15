@@ -1,15 +1,11 @@
-library(mvtnorm)
 library(poibin)
 devtools::load_all()
 
 set.seed(2)
 
-n_spp = 25
+n_spp = 10
 n_loc = 10000
 n_obs_x = 5
-
-true_rho = matrix(.7, n_spp, n_spp)
-diag(true_rho) = 1
 
 true_intercepts = rnorm(n_spp, -1)
 
@@ -48,12 +44,6 @@ y_test = structure(
 )
 
 
-full_x_test = full_x_train
-observed_x_test = observed_x_train
-true_p_test = true_p_train
-y_test = y_train
-
-
 glms = lapply(
   1:n_spp,
   function(i){
@@ -71,7 +61,7 @@ bc = bc_stack(
   p_train = predicted_p_train,
   y_train = y_train,
   p_test = predicted_p_test,
-  110, burn = 10, thin = 1
+  5010, burn = 10, thin = 10
 )
 
 stack = bc$predicted_array
@@ -125,4 +115,7 @@ points(sum(y_test[i, ]), 0, pch = 16, cex = 2)
 
 # analyses ----------------------------------------------------------------
 
-true_sigma = cov(probit(true_p_test) - probit(predicted_p_test))
+true_rho = cov2cor(cov(probit(true_p_test) - probit(predicted_p_test)))
+est_rho = marginalize_out(bc$rho_array, 3)
+plot(true_rho ~ est_rho)
+abline(0,1)

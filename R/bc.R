@@ -49,7 +49,8 @@ bc_stack = function(p_train, y_train, p_test, iters = 1010, burn = 10, thin = 2,
     thin = thin,
     verbose = verbose,
     updateR = TRUE,
-    updateMu = FALSE
+    updateMu = FALSE,
+    priW = c(nrow(z) + ncol(z) + 1, ncol(z) + 1)
   )
 
 
