@@ -6,20 +6,15 @@ Date: 2016-01-12
 Authors@R: person("David", "Harris", email = "code@harris-research.me", role = c("aut", "cre"))
 Description: More about what it does (maybe more than one line)
 Depends:
-    R (>= 3.0.2),
-    Rcpp (>= 0.11.0),
-    methods
+    R (>= 3.0.2)
 Imports:
     BayesComm,
     mvtnorm,
     poibin,
-    progress,
-    abind
+    progress
 Suggests:
     knitr,
     testthat
-LinkingTo: StanHeaders (>= 2.9.0), rstan (>= 2.9.0), BH (>= 1.58.0), Rcpp (>=
-    0.11.0), RcppEigen
 VignetteBuilder: knitr
 LazyData: true
 NeedsCompilation: yes

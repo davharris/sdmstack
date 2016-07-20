@@ -1,0 +1,19 @@
+---
+title: "Postprocessing species distribution models to make community-level predictions"
+author: "David J. Harris"
+date: "July 9, 2016"
+output: pdf_document
+---
+
+* Single-species SDMs are common & have lots of good options/tools for different scenarios
+* In practice, we'll always miss important environmental drivers: Communities aren't just bags of climatically-compatible species
+    * But when we "stack" SDMs to make predictions aobut community-level stuff, we implicitly assume no missing predictors.
+* Structured residuals:
+    * When you're wrong about species 1, you're probably also wrong about all the species that correlate with it. This can cause cascading failures in predicting community-level properties, such as species richness.
+    * There's important biology in these residuals
+    * Leading eigenvectors of the covariance matrix represent systematic gradients in species composition, e.g. due to non-climate factors that favor one guild over another
+    * Entries of $-\Sigma^{-1}$, i.e. the partial correlations among species, approximately describe the sign and magnitude of pairwise species interactions.
+* Modeling approaches that address this:
+    * Most JSDMs assume linearity
+    * Mistnet is nonlinear but is a huge pain in the ass
+* 
